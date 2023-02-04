@@ -1,0 +1,54 @@
+Figure6-2
+
+library(ggplot2)
+library(patchwork)
+
+dat_ci
+#   Characteristics y.pos    hr low.ci high.ci
+# 1         T stage     9    NA     NA      NA
+# 2           T1&T2     8 2.448  1.523   3.936
+# 3              T3     7 2.862  1.496   5.475
+# 4         N stage     6    NA     NA      NA
+# 5              N0     5 2.570  1.621   4.074
+# 6              N1     4 1.570  0.621   2.074
+# 7         M stage     3    NA     NA      NA
+# 8              M0     2 2.590  1.629   4.118
+# 9              M1     1 1.548  1.123   2.536
+
+p2 <- ggplot() +
+  geom_errorbar(data = dat_ci, aes(y = y.pos, xmin = low.ci, xmax = high.ci), width = 0.25) +
+  geom_point(data = dat_ci, aes(y = y.pos, x = hr),  colour = "#0066DD") + 
+  geom_line(aes(x = c(1, 1), y = c(-Inf, 9.5)),  linetype = 2, size = 0.5) +
+  geom_line(aes(x = c(-Inf,Inf), y = c(9.5, 9.5))) +
+  geom_line(aes(x = c(-Inf,Inf), y = c(10.5, 10.5))) +
+  scale_y_continuous(limits = c(0.5,10.5)) + 
+  theme_void() +
+  theme(axis.text.x = element_text(), axis.line.x = element_line(),
+        axis.ticks.length.x = unit(0.1, "cm"), axis.ticks.x = element_line())
+
+dat_text
+#         label_name y.pos
+# 1  Characteristics    10
+# 11         T stage     9
+# 2            T1&T2     8
+# 3               T3     7
+# 4          N stage     6
+# 5               N0     5
+# 6               N1     4
+# 7          M stage     3
+# 8               M0     2
+# 9               M1     1
+p1 <- ggplot() +
+  geom_text(data = dat_text, aes(x = 1, y = y.pos, label = label_name), size = 2.5) +
+  geom_line(aes(x = c(-Inf,Inf), y = c(10.5, 10.5))) +
+  geom_line(aes(x = c(-Inf,Inf), y = c(9.5, 9.5))) +
+  scale_y_continuous(limits = c(0.5,10.5)) + 
+  theme_void() +
+  theme(axis.line.x = element_line())
+  
+p1 + p2
+
+
+
+
+
