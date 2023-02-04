@@ -1,4 +1,4 @@
-#figure2
+#figure2a-b
 library(tidyverse)
 library(ggplot2)
 library(reshape2)
