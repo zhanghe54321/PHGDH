@@ -1,0 +1,74 @@
+Figure8-limma
+#source("http://bioconductor.org/biocLite.R")
+#biocLite("limma")
+
+logFoldChange=1
+adjustP=0.05
+
+library(limma)
+setwd("C:\\Users\\zhang\\Desktop\\11-16-m6A\\142GEOm6A\\08.diff\\all")
+rt=read.table("TelomereExpval2.txt",sep="\t",header=T,check.names=F)
+rt=as.matrix(rt)
+rownames(rt)=rt[,1] #将第一列数据（基因名）作为行名
+exp=rt[,2:ncol(rt)] #选择第2列到最后一列，即表达矩阵，并赋值给exp。这样就得到行名为基因名，列名为样本名的矩阵
+dimnames=list(rownames(exp),colnames(exp)) #提取出exp的行名和列名。这里的dimnames就是矩阵创建matrix里面的参数，在数据结构矩阵那一节有讲。
+rt=matrix(as.numeric(as.matrix(exp)),nrow=nrow(exp),dimnames=dimnames) #合并整个矩阵，得到一个行名为基因名，列名为样本名的表达矩阵
+
+#differential
+modType=c(rep("trium",35),rep("triosis",28)) #前3个为trium样本，后3个为triosis样本 #构建分组模型，根据GSE1009样本的排列，前3个为正常样本，后3个为糖肾样本，构建一个分组的向量模型。
+design <- model.matrix(~0+factor(modType),levels = c("trium","triosis"),ordered = F)
+colnames(design) <- c("trium","triosis")
+
+
+fit <- lmFit(rt,design)
+cont.matrix<-makeContrasts(trium-triosis,levels=design)
+fit2 <- contrasts.fit(fit, cont.matrix)
+fit2 <- eBayes(fit2)
+
+allDiff=topTable(fit2,adjust='fdr',number=200000)
+write.table(allDiff,file="limmaTab.xls",sep="\t",quote=F,row.names=T)
+
+#write table
+diffSig <- allDiff[with(allDiff, (abs(logFC)>logFoldChange & adj.P.Val < adjustP )), ]
+write.table(diffSig,file="diff.xls",sep="\t",quote=F,row.names=T)
+diffUp <- allDiff[with(allDiff, (logFC>logFoldChange & adj.P.Val < adjustP )), ]
+write.table(diffUp,file="up.xls",sep="\t",quote=F,row.names=T)
+diffDown <- allDiff[with(allDiff, (logFC<(-logFoldChange) & adj.P.Val < adjustP )), ]
+write.table(diffDown,file="down.xls",sep="\t",quote=F,row.names=T)
+
+#write expression level of diff gene
+hmExp=rt[as.vector(diffSig[,1]),]
+diffExp=rbind(id=colnames(hmExp),hmExp)
+write.table(diffExp,file="diffExp.txt",sep="\t",quote=F,col.names=T)
+
+#volcano
+pdf(file="vol.pdf")
+xMax=max(-log10(allDiff$adj.P.Val))
+yMax=max(abs(allDiff$logFC))
+plot(-log10(allDiff$adj.P.Val), allDiff$logFC, xlab="-log10(adj.P.Val)",ylab="logFC",
+     main="Volcano", xlim=c(0,xMax),ylim=c(-yMax,yMax),yaxs="i",pch=20, cex=0.8)
+diffSub=subset(allDiff, adj.P.Val<adjustP & logFC>logFoldChange)
+points(-log10(diffSub$adj.P.Val), diffSub$logFC, pch=20, col="red",cex=0.8)
+diffSub=subset(allDiff, adj.P.Val<adjustP & logFC<(-logFoldChange))
+points(-log10(diffSub$adj.P.Val), diffSub$logFC, pch=20, col="green",cex=0.8)
+abline(h=0,lty=2,lwd=3)
+dev.off()
+
+##绘制热图
+group<-modType
+
+#设置热图的分组。
+group<-as.data.frame(group)
+
+rownames(group)<-colnames(rt)
+
+#按照分组，将rt的列名改为DN或control
+heat<-rt[rownames(rt) %in% c(head(rownames(subset(diffSig,diffSig$logFC>0)),20),head(rownames(subset(diffSig,diffSig$logFC<0)),20)),]
+library(pheatmap)
+x <- t(scale(t(heat)))
+y <- pheatmap(x,annotation_col=group)
+
+#绘制前20个基因的热图，自己调整基因数、图形颜色等等。
+pdf(file="heatmap.pdf", width=10, height=5)
+print(y)
+dev.off()
