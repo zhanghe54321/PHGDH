@@ -1,0 +1,80 @@
+Figure7
+#install.packages("rms")
+#install.packages("rmda")
+citation("rms")
+citation("rmda")
+citation("ResourceSelection")
+
+#引用包
+library(rms)
+library(rmda)
+
+inputFile="rfGeneExp.txt"       #输入文件
+setwd("C:\\Users\\zhang\\Desktop\\11-16-m6A\\142GEOm6A\\14.Nomo")      #设置工作目录
+
+#读取输入文件
+data=read.table(inputFile, header=T, sep="\t", check.names=F, row.names=1)
+data=t(data)
+group=gsub("(.*)\\_(.*)", "\\2", row.names(data))
+rt=cbind(as.data.frame(data), Type=group)
+paste(colnames(data), collapse="+")
+
+#数据打包
+ddist=datadist(rt)
+options(datadist="ddist")
+
+#构建模型，绘制列线图
+lrmModel=lrm(Type~ MAP7+GRHL2+RARRES2+UCHL1+ESR1+REV3L, data=rt, x=T, y=T, maxit=1000)
+nomo=nomogram(lrmModel, fun=plogis,
+	fun.at=c(0.0001,0.1,0.3,0.5,0.7,0.9,0.99),
+	lp=F, funlabel="Risk of Disease")
+#输出列线图
+pdf("Nom.pdf", width=8, height=6)
+plot(nomo)
+dev.off()
+
+#计算hosmer-lemeshow的P值
+#install.packages("ResourceSelection")
+library(ResourceSelection)
+
+model_glm <- glm(Type~ MAP7+GRHL2+RARRES2+UCHL1+ESR1+REV3L, data=rt)
+p.hoslem <- hoslem.test(model_glm$y, fitted(model_glm), g=10)$p.value
+p.hoslem
+
+#绘制校准曲线
+cali=calibrate(lrmModel, method="boot", B=1000)
+pdf("Calibration.pdf", width=6, height=6)
+plot(cali,
+	xlab="Predicted probability",
+	ylab="Actual probability", sub=F)
+dev.off()
+
+summary(cali)
+Cindex<-rcorrcens(lrmModel)
+Cindex
+
+#绘制决策曲线
+rt$Type=ifelse(rt$Type=="trium", 0, 1)
+dc=decision_curve(Type ~ MAP7+GRHL2+RARRES2+UCHL1+ESR1+REV3L, data=rt, 
+	family = binomial(link ='logit'),
+	thresholds= seq(0,1,by = 0.01),
+	confidence.intervals = 0.95)
+#输出DCA图形
+pdf(file="DCA.pdf", width=6, height=7)
+plot_decision_curve(dc,
+	curve.names="m6A genes",
+	xlab="Threshold probability",
+	cost.benefit.axis=T,
+	col="red",
+	confidence.intervals=FALSE,
+	standardize=FALSE)
+dev.off()
+
+summary(complex,measure=NB)
+summary(dc)
+#绘制临床影响曲线
+pdf(file="clinical_impact.pdf", width=6, height=6)
+plot_clinical_impact(dc,
+	confidence.intervals=T,
+	col = c("red", "blue"))
+dev.off()
